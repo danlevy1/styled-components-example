@@ -1,0 +1,28 @@
+{
+    "presets": [
+        [
+            "@babel/preset-env",
+            {
+                "useBuiltIns": "usage",
+                "corejs": "3.18",
+                "targets": "> 1%, not dead"
+            }
+        ],
+        "@babel/preset-react",
+        [
+            "@babel/preset-typescript",
+            {
+                "allowDeclareFields": true,
+                "onlyRemoveTypeImports": true,
+                "isTSX": true,
+                "allExtensions": true
+            }
+        ]
+    ],
+    "plugins": [
+        [
+            "@babel/plugin-transform-runtime",
+            { "corejs": 3, "version": "^7.15.0" }
+        ]
+    ]
+}
