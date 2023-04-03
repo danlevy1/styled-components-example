@@ -19,6 +19,7 @@ export interface ButtonProps
 
 const StyledButton = styled.button`
     padding: 30px;
+    color: ${(props) => props.theme.color.red};
 `;
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
