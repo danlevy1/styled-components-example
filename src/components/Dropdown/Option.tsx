@@ -1,20 +1,9 @@
-import React, {
-    useCallback,
-    useContext,
-    useEffect,
-    useId,
-    useRef,
-    useState,
-} from "react";
+import React, { useContext, useEffect, useId, useMemo, useState } from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 
 export type Option = {
-    element: HTMLLIElement;
-    makeOptionActive: () => void;
-    makeOptionInactive: () => void;
-    selectOption: () => void;
-    deselectOption: () => void;
+    element: HTMLLIElement | null;
 };
 
 export interface OptionProps {
@@ -56,59 +45,55 @@ const StyledOptionText = styled.span`
 `;
 
 const Option = ({ text }: OptionProps) => {
-    const [isOptionActive, setIsOptionActive] = useState(false);
-    const [isOptionSelected, setIsOptionSelected] = useState(false);
-    const optionElementRef = useRef<HTMLLIElement>(null);
-    const { registerOption, deregisterOption } = useContext(ListboxContext);
-    const optionId = useId();
-
-    const makeOptionActive = useCallback(() => {
-        setIsOptionActive(true);
-    }, []);
-
-    const makeOptionInactive = useCallback(() => {
-        setIsOptionActive(false);
-    }, []);
-
-    const selectOption = useCallback(() => {
-        setIsOptionSelected(true);
-    }, []);
-
-    const deselectOption = useCallback(() => {
-        setIsOptionSelected(false);
-    }, []);
-
-    useEffect(() => {
-        const optionElement = optionElementRef.current!;
-
-        registerOption({
-            element: optionElement,
-            makeOptionActive,
-            makeOptionInactive,
-            selectOption,
-            deselectOption,
-        });
-
-        return () => {
-            deregisterOption(optionElement);
-        };
-    }, [
-        makeOptionActive,
-        makeOptionInactive,
-        selectOption,
-        deselectOption,
+    const [optionElement, setOptionElement] = useState<HTMLLIElement | null>(
+        null
+    );
+    const {
         registerOption,
         deregisterOption,
-    ]);
+        activeOption,
+        onActiveOptionChange,
+        selectedOption,
+        onSelectedOptionChange,
+    } = useContext(ListboxContext);
+    const optionId = useId();
+
+    const optionData = useMemo(() => {
+        return {
+            element: optionElement,
+        };
+    }, [optionElement]);
+
+    useEffect(() => {
+        registerOption(optionData);
+
+        return () => {
+            deregisterOption(optionData);
+        };
+    }, [registerOption, deregisterOption, optionData]);
 
     return (
         <StyledOption
             id={optionId}
             role="option"
-            $active={isOptionActive}
-            aria-selected={isOptionSelected}
-            ref={optionElementRef}
-            // onMouseLeave={() => console.log("REACT LEAVE")}
+            $active={
+                optionData.element && activeOption?.element
+                    ? optionData.element === activeOption.element
+                    : false
+            }
+            aria-selected={optionData.element === selectedOption?.element}
+            ref={(element) => setOptionElement(element)}
+            onMouseDown={() => {
+                onActiveOptionChange(optionData);
+            }}
+            onClick={() => {
+                onSelectedOptionChange(optionData);
+            }}
+            onMouseLeave={(evt) => {
+                if (evt.buttons === 1) {
+                    onActiveOptionChange(null);
+                }
+            }}
         >
             <StyledOptionText>{text}</StyledOptionText>
         </StyledOption>
