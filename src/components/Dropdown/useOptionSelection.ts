@@ -13,10 +13,61 @@ const getIndexOfOption = (list: Option[], option: Option) => {
 
 const useOptionSelection = (listboxElement: HTMLUListElement | null) => {
     const [optionList, setOptionList] = useState<Option[]>([]);
-    const [activeOption, setActiveOption] = useState<Option | null>(null);
+    const [activeOption, setActiveOption_do_not_use] = useState<Option | null>(
+        null
+    );
+    const [selectedOption, setSelectedOption_do_not_use] =
+        useState<Option | null>(null);
+
+    const setActiveOption = useCallback(
+        (newActiveOption: Option | null) => {
+            activeOption?.makeOptionInactive();
+            newActiveOption?.makeOptionActive();
+
+            setActiveOption_do_not_use(newActiveOption);
+        },
+        [activeOption]
+    );
+
+    const setSelectedOption = useCallback(
+        (newSelectedOption: Option | null) => {
+            selectedOption?.deselectOption();
+            newSelectedOption?.selectOption();
+
+            setSelectedOption_do_not_use(newSelectedOption);
+        },
+        [selectedOption]
+    );
 
     const registerOption = useCallback((newOption: Option): undefined => {
-        setOptionList((currentOptionList) => [...currentOptionList, newOption]);
+        setOptionList((currentOptionList) => {
+            if (currentOptionList.length === 0) {
+                return [newOption];
+            } else {
+                const newOptionList: Option[] = [];
+
+                let isNewOptionAddedToList = false;
+                for (const currentOption of currentOptionList) {
+                    if (
+                        !isNewOptionAddedToList &&
+                        newOption.element.compareDocumentPosition(
+                            currentOption.element
+                        ) & Node.DOCUMENT_POSITION_FOLLOWING
+                    ) {
+                        newOptionList.push(newOption);
+                        isNewOptionAddedToList = true;
+                    }
+
+                    newOptionList.push(currentOption);
+                }
+
+                if (!isNewOptionAddedToList) {
+                    newOptionList.push(newOption);
+                }
+
+                return newOptionList;
+            }
+        });
     }, []);
 
     const deregisterOption = useCallback(
@@ -82,33 +133,25 @@ const useOptionSelection = (listboxElement: HTMLUListElement | null) => {
         const handleKeydown = (evt: KeyboardEvent) => {
             switch (evt.key) {
                 case "ArrowUp": {
-                    activeOption?.makeOptionInactive();
-                    const previousOption = getPreviousOption();
-                    previousOption?.makeOptionActive();
-                    setActiveOption(previousOption);
+                    setActiveOption(getPreviousOption());
                     break;
                 }
                 case "ArrowDown": {
-                    activeOption?.makeOptionInactive();
-                    const nextOption = getNextOption();
-                    nextOption?.makeOptionActive();
-                    setActiveOption(nextOption);
+                    setActiveOption(getNextOption());
                     break;
                 }
                 case "Home": {
-                    activeOption?.makeOptionInactive();
-                    const firstOption = getFirstOption();
-                    firstOption?.makeOptionActive();
-                    setActiveOption(firstOption);
+                    setActiveOption(getFirstOption());
                     break;
                 }
                 case "End": {
-                    activeOption?.makeOptionInactive();
-                    const lastOption = getLastOption();
-                    lastOption?.makeOptionActive();
-                    setActiveOption(lastOption);
+                    setActiveOption(getLastOption());
                     break;
                 }
+                case "Enter":
+                case " ":
+                    setSelectedOption(activeOption);
+                    break;
             }
         };
 
@@ -124,7 +167,9 @@ const useOptionSelection = (listboxElement: HTMLUListElement | null) => {
         getLastOption,
         setActiveOption,
         activeOption,
+        selectedOption,
         listboxElement,
+        setSelectedOption,
     ]);
 
     useEffect(() => {
@@ -138,24 +183,99 @@ const useOptionSelection = (listboxElement: HTMLUListElement | null) => {
             return handleMousedownCurried;
         };
 
-        optionList.forEach((option) => {
+        const handleMouseup = (option: Option) => {
+            const handleMouseupCurried = () => {
+                setSelectedOption(option);
+            };
+
+            return handleMouseupCurried;
+        };
+
+        const handleMouseleave = (option: Option) => {
+            const handleMouseleaveCurried = (evt: MouseEvent) => {
+                if (evt.buttons === 1 && option !== selectedOption) {
+                    setActiveOption(null);
+                }
+            };
+
+            return handleMouseleaveCurried;
+        };
+
+        const eventListeners: {
+            handleMemoizedMousedown: () => void;
+            handleMemoizedMouseup: () => void;
+            handleMemoizedMouseleave: (evt: MouseEvent) => void;
+        }[] = [];
+
+        optionList.forEach((option, i) => {
+            const mousedownCurried = handleMousedown(option);
+            const mouseupCurried = handleMouseup(option);
+            const mouseleaveCurried = handleMouseleave(option);
+
+            eventListeners.push({
+                handleMemoizedMousedown: mousedownCurried,
+                handleMemoizedMouseup: mouseupCurried,
+                handleMemoizedMouseleave: mouseleaveCurried,
+            });
+
             option.element.addEventListener(
                 "mousedown",
-                handleMousedown(option)
+                eventListeners[i].handleMemoizedMousedown
+            );
+            option.element.addEventListener(
+                "mouseup",
+                eventListeners[i].handleMemoizedMouseup
+            );
+            option.element.addEventListener(
+                "mouseleave",
+                eventListeners[i].handleMemoizedMouseleave
             );
         });
 
         return () => {
-            optionList.forEach((option) => {
+            optionList.forEach((option, i) => {
                 option.element.removeEventListener(
                     "mousedown",
-                    handleMousedown(option)
+                    eventListeners[i].handleMemoizedMousedown
+                );
+                option.element.removeEventListener(
+                    "mouseup",
+                    eventListeners[i].handleMemoizedMouseup
+                );
+                option.element.removeEventListener(
+                    "mouseleave",
+                    eventListeners[i].handleMemoizedMouseleave
                 );
             });
         };
-    }, [listboxElement, optionList, activeOption]);
+    }, [
+        listboxElement,
+        optionList,
+        activeOption,
+        selectedOption,
+        setActiveOption,
+        setSelectedOption,
+    ]);
 
-    return { optionList, activeOption, registerOption, deregisterOption };
+    useEffect(() => {
+        const handleFocusout = () => {
+            setActiveOption(null);
+        };
+
+        listboxElement?.addEventListener("focusout", handleFocusout);
+
+        return () => {
+            listboxElement?.removeEventListener("focusout", handleFocusout);
+        };
+    }, [activeOption, listboxElement, setActiveOption]);
+
+    return {
+        optionList,
+        activeOption,
+        selectedOption,
+        registerOption,
+        deregisterOption,
+    };
 };
 
 export default useOptionSelection;

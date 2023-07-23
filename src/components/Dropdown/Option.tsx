@@ -13,6 +13,8 @@ export type Option = {
     element: HTMLLIElement;
     makeOptionActive: () => void;
     makeOptionInactive: () => void;
+    selectOption: () => void;
+    deselectOption: () => void;
 };
 
 export interface OptionProps {
@@ -55,6 +57,7 @@ const StyledOptionText = styled.span`
 
 const Option = ({ text }: OptionProps) => {
     const [isOptionActive, setIsOptionActive] = useState(false);
+    const [isOptionSelected, setIsOptionSelected] = useState(false);
     const optionElementRef = useRef<HTMLLIElement>(null);
     const { registerOption, deregisterOption } = useContext(ListboxContext);
     const optionId = useId();
@@ -67,6 +70,14 @@ const Option = ({ text }: OptionProps) => {
         setIsOptionActive(false);
     }, []);
 
+    const selectOption = useCallback(() => {
+        setIsOptionSelected(true);
+    }, []);
+
+    const deselectOption = useCallback(() => {
+        setIsOptionSelected(false);
+    }, []);
+
     useEffect(() => {
         const optionElement = optionElementRef.current!;
 
@@ -74,6 +85,8 @@ const Option = ({ text }: OptionProps) => {
             element: optionElement,
             makeOptionActive,
             makeOptionInactive,
+            selectOption,
+            deselectOption,
         });
 
         return () => {
@@ -82,6 +95,8 @@ const Option = ({ text }: OptionProps) => {
     }, [
         makeOptionActive,
         makeOptionInactive,
+        selectOption,
+        deselectOption,
         registerOption,
         deregisterOption,
     ]);
@@ -91,7 +106,9 @@ const Option = ({ text }: OptionProps) => {
             id={optionId}
             role="option"
             $active={isOptionActive}
+            aria-selected={isOptionSelected}
             ref={optionElementRef}
+            // onMouseLeave={() => console.log("REACT LEAVE")}
         >
             <StyledOptionText>{text}</StyledOptionText>
         </StyledOption>

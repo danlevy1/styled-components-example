@@ -19,15 +19,14 @@ const StyledListbox = styled.ul`
 
 const Listbox = ({ children }: ListboxProps) => {
     const listboxRef = useRef<HTMLUListElement>(null);
-    const { registerOption, deregisterOption } = useOptionSelection(
-        listboxRef.current
-    );
+    const { registerOption, deregisterOption, activeOption } =
+        useOptionSelection(listboxRef.current);
 
     return (
         <StyledListbox
             role="listbox"
             tabIndex={0}
-            // aria-activedescendant={activeOption?.element.id}
+            aria-activedescendant={activeOption?.element.id}
             ref={listboxRef}
         >
             <ListboxContext.Provider
