@@ -32,10 +32,6 @@ const Listbox = ({ children }: ListboxProps) => {
     const [registerOption, deregisterOption, optionList] =
         useComponentRegistration<Option>();
 
-    useEffect(() => {
-        console.log({ optionList });
-    }, [optionList]);
-
     const getIndexOfOption = useCallback(
         (option: Option) => {
             for (let i = 0; i < optionList.length; i++) {
