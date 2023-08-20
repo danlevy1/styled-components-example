@@ -1,5 +1,5 @@
 import React, {
-    ComponentPropsWithoutRef,
+    ReactNode,
     useCallback,
     useEffect,
     useRef,
@@ -8,10 +8,26 @@ import React, {
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 import useComponentRegistration from "./useComponentRegistration";
-import { Option } from "./Option";
+import { ListboxOption } from "./ListboxOption";
 
-export interface ListboxProps
-    extends Pick<ComponentPropsWithoutRef<"div">, "children"> {}
+type ListboxDiscriminatedProps =
+    | {
+          "aria-label": string;
+          "aria-labelledby"?: string;
+      }
+    | {
+          "aria-label"?: string;
+          "aria-labelledby": string;
+      };
+
+type ListboxNonDiscriminatedProps = {
+    "aria-describedby"?: string;
+    selectionFollowsFocus?: boolean;
+    children?: ReactNode;
+};
+
+export type ListboxProps = ListboxDiscriminatedProps &
+    ListboxNonDiscriminatedProps;
 
 const StyledListbox = styled.ul`
     display: inline-block;
@@ -24,16 +40,26 @@ const StyledListbox = styled.ul`
     padding: 10px 0;
 `;
 
-const Listbox = ({ children }: ListboxProps) => {
+const Listbox = ({
+    "aria-label": ariaLabel,
+    "aria-labelledby": ariaLabelledby,
+    "aria-describedby": ariaDescribedby,
+    selectionFollowsFocus = false,
+    children,
+}: ListboxProps) => {
     const listboxRef = useRef<HTMLUListElement>(null);
-    const [activeOption, setActiveOption] = useState<Option | null>(null);
-    const [selectedOption, setSelectedOption] = useState<Option | null>(null);
+    const [activeOption, setActiveOption] = useState<ListboxOption | null>(
+        null
+    );
+    const [selectedOption, setSelectedOption] = useState<ListboxOption | null>(
+        null
+    );
 
     const [registerOption, deregisterOption, optionList] =
-        useComponentRegistration<Option>();
+        useComponentRegistration<ListboxOption>();
 
     const getIndexOfOption = useCallback(
-        (option: Option) => {
+        (option: ListboxOption) => {
             for (let i = 0; i < optionList.length; i++) {
                 if (optionList[i].element === option.element) {
                     return i;
@@ -45,7 +71,7 @@ const Listbox = ({ children }: ListboxProps) => {
         [optionList]
     );
 
-    const getFirstOption = useCallback((): Option | null => {
+    const getFirstOption = useCallback((): ListboxOption | null => {
         if (optionList.length > 0) {
             return optionList[0];
         }
@@ -53,7 +79,7 @@ const Listbox = ({ children }: ListboxProps) => {
         return null;
     }, [optionList]);
 
-    const getLastOption = useCallback((): Option | null => {
+    const getLastOption = useCallback((): ListboxOption | null => {
         if (optionList.length > 0) {
             return optionList[optionList.length - 1];
         }
@@ -61,65 +87,94 @@ const Listbox = ({ children }: ListboxProps) => {
         return null;
     }, [optionList]);
 
-    const getNextOption = useCallback((): Option | null => {
-        if (activeOption === null) {
+    const getNextOption = useCallback((): ListboxOption | null => {
+        const currentOption = activeOption ?? selectedOption;
+
+        if (currentOption == null) {
             return getFirstOption();
         }
 
-        const indexOfCurrentOption = activeOption
-            ? getIndexOfOption(activeOption)
+        const indexOfCurrentOption = currentOption
+            ? getIndexOfOption(currentOption)
             : -1;
 
         if (indexOfCurrentOption === optionList.length - 1) {
-            return activeOption;
+            return currentOption;
         }
 
         return optionList[indexOfCurrentOption + 1];
-    }, [getFirstOption, activeOption, getIndexOfOption, optionList]);
+    }, [
+        getFirstOption,
+        activeOption,
+        selectedOption,
+        getIndexOfOption,
+        optionList,
+    ]);
 
-    const getPreviousOption = useCallback((): Option | null => {
-        if (activeOption === null) {
+    const getPreviousOption = useCallback((): ListboxOption | null => {
+        const currentOption = activeOption ?? selectedOption;
+
+        if (currentOption == null) {
             return getLastOption();
         }
 
-        const indexOfCurrentOption = activeOption
-            ? getIndexOfOption(activeOption)
+        const indexOfCurrentOption = currentOption
+            ? getIndexOfOption(currentOption)
             : optionList.length - 1;
 
         if (indexOfCurrentOption === 0) {
-            return activeOption;
+            return currentOption;
         }
 
         return optionList[indexOfCurrentOption - 1];
-    }, [getLastOption, activeOption, getIndexOfOption, optionList]);
+    }, [
+        getLastOption,
+        activeOption,
+        selectedOption,
+        getIndexOfOption,
+        optionList,
+    ]);
 
     return (
         <StyledListbox
             role="listbox"
+            aria-label={ariaLabel}
+            aria-labelledby={ariaLabelledby}
+            aria-describedby={ariaDescribedby}
             tabIndex={0}
             aria-activedescendant={activeOption?.element?.id}
             ref={listboxRef}
             onKeyDown={(evt) => {
                 switch (evt.key) {
                     case "ArrowUp": {
-                        setActiveOption(getPreviousOption());
+                        const previousOption = getPreviousOption();
+                        setActiveOption(previousOption);
+                        selectionFollowsFocus &&
+                            setSelectedOption(previousOption);
                         break;
                     }
                     case "ArrowDown": {
-                        setActiveOption(getNextOption());
+                        const nextOption = getNextOption();
+                        setActiveOption(nextOption);
+                        selectionFollowsFocus && setSelectedOption(nextOption);
                         break;
                     }
                     case "Home": {
-                        setActiveOption(getFirstOption());
+                        const firstOption = getFirstOption();
+                        setActiveOption(firstOption);
+                        selectionFollowsFocus && setSelectedOption(firstOption);
                         break;
                     }
                     case "End": {
-                        setActiveOption(getLastOption());
+                        const lastOption = getLastOption();
+                        setActiveOption(lastOption);
+                        selectionFollowsFocus && setSelectedOption(lastOption);
                         break;
                     }
                     case " ":
                     case "Enter": {
-                        setSelectedOption(activeOption);
+                        !selectionFollowsFocus &&
+                            setSelectedOption(activeOption);
                     }
                 }
             }}

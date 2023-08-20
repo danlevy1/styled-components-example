@@ -2,22 +2,24 @@ import React, { useContext, useEffect, useId, useMemo, useState } from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 
-export type Option = {
+export type ListboxOption = {
     element: HTMLLIElement | null;
 };
 
-export interface OptionProps {
+export interface ListboxOptionProps {
     text: string;
 }
 
-interface StyledOptionProps {
+interface StyledListboxOptionProps {
     $active: boolean;
 }
 
-const StyledOption = styled.li<StyledOptionProps>`
+const StyledListboxOption = styled.li<StyledListboxOptionProps>`
     display: flex;
     justify-content: start;
     align-items: center;
+
+    cursor: pointer;
 
     padding: 10px;
 
@@ -38,13 +40,13 @@ const StyledOption = styled.li<StyledOptionProps>`
     }
 `;
 
-const StyledOptionText = styled.span`
+const StyledListboxOptionText = styled.span`
     font-size: 16px;
     font-weight: 400;
     line-height: 1.5;
 `;
 
-const Option = ({ text }: OptionProps) => {
+const Option = ({ text }: ListboxOptionProps) => {
     const [optionElement, setOptionElement] = useState<HTMLLIElement | null>(
         null
     );
@@ -73,7 +75,7 @@ const Option = ({ text }: OptionProps) => {
     }, [registerOption, deregisterOption, optionData]);
 
     return (
-        <StyledOption
+        <StyledListboxOption
             id={optionId}
             role="option"
             $active={
@@ -95,8 +97,8 @@ const Option = ({ text }: OptionProps) => {
                 }
             }}
         >
-            <StyledOptionText>{text}</StyledOptionText>
-        </StyledOption>
+            <StyledListboxOptionText>{text}</StyledListboxOptionText>
+        </StyledListboxOption>
     );
 };
 

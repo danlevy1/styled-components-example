@@ -1,14 +1,18 @@
 import { Dispatch, SetStateAction, createContext } from "react";
-import { Option } from "./Option";
+import { ListboxOption } from "./ListboxOption";
 import useComponentRegistration from "./useComponentRegistration";
 
 type ListboxContextType = {
-    registerOption: ReturnType<typeof useComponentRegistration<Option>>[0];
-    deregisterOption: ReturnType<typeof useComponentRegistration<Option>>[1];
-    activeOption: Option | null;
-    onActiveOptionChange: Dispatch<SetStateAction<Option | null>>;
-    selectedOption: Option | null;
-    onSelectedOptionChange: Dispatch<SetStateAction<Option | null>>;
+    registerOption: ReturnType<
+        typeof useComponentRegistration<ListboxOption>
+    >[0];
+    deregisterOption: ReturnType<
+        typeof useComponentRegistration<ListboxOption>
+    >[1];
+    activeOption: ListboxOption | null;
+    onActiveOptionChange: Dispatch<SetStateAction<ListboxOption | null>>;
+    selectedOption: ListboxOption | null;
+    onSelectedOptionChange: Dispatch<SetStateAction<ListboxOption | null>>;
 };
 
 export const ListboxContext = createContext<ListboxContextType>({
