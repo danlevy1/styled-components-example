@@ -11,8 +11,9 @@ type ListboxContextType = {
     >[1];
     activeOption: ListboxOption | null;
     onActiveOptionChange: Dispatch<SetStateAction<ListboxOption | null>>;
-    selectedOption: ListboxOption | null;
-    onSelectedOptionChange: Dispatch<SetStateAction<ListboxOption | null>>;
+    selectedOptions: ListboxOption[] | null;
+    onSelectedOptionsChange: Dispatch<SetStateAction<ListboxOption[] | null>>;
+    multiselect: boolean;
 };
 
 export const ListboxContext = createContext<ListboxContextType>({
@@ -20,6 +21,7 @@ export const ListboxContext = createContext<ListboxContextType>({
     deregisterOption: () => undefined,
     activeOption: null,
     onActiveOptionChange: () => {},
-    selectedOption: null,
-    onSelectedOptionChange: () => {},
+    selectedOptions: null,
+    onSelectedOptionsChange: () => {},
+    multiselect: false,
 });

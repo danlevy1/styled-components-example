@@ -17,7 +17,7 @@ const App = () => {
                     <Listbox
                         aria-label="example label"
                         aria-describedby="ex"
-                        selectionFollowsFocus
+                        multiselect
                     >
                         <ListboxGroup text="Group 1">
                             <ListboxOption text="Option 1" />

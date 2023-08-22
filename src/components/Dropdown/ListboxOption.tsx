@@ -4,6 +4,7 @@ import { ListboxContext } from "./ListboxContext";
 
 export type ListboxOption = {
     element: HTMLLIElement | null;
+    text: string;
 };
 
 export interface ListboxOptionProps {
@@ -12,6 +13,12 @@ export interface ListboxOptionProps {
 
 interface StyledListboxOptionProps {
     $active: boolean;
+    $selected: boolean;
+    $multiselect: boolean;
+}
+
+interface StyledListboxOptionCheckboxProps {
+    $selected: boolean;
 }
 
 const StyledListboxOption = styled.li<StyledListboxOptionProps>`
@@ -27,16 +34,22 @@ const StyledListboxOption = styled.li<StyledListboxOptionProps>`
         background-color: ${({ $active }) => !$active && "#f0efef"};
     }
 
-    background-color: ${({ $active }) => $active && "#e9e7e7"};
+    background-color: ${({ $active, $selected, $multiselect }) => {
+        if ($selected && !$multiselect) {
+            return "lightblue";
+        }
+
+        if ($active) {
+            return "#e9e7e7";
+        }
+
+        return undefined;
+    }};
 
     &:focus {
         outline: none;
         box-shadow: inset 0 0 0 2px #4558b5;
         border-radius: 4px;
-    }
-
-    &[aria-selected="true"] {
-        background-color: lightblue;
     }
 `;
 
@@ -44,6 +57,18 @@ const StyledListboxOptionText = styled.span`
     font-size: 16px;
     font-weight: 400;
     line-height: 1.5;
+`;
+
+const StyledListboxOptionCheckbox = styled.div<StyledListboxOptionCheckboxProps>`
+    width: 15px;
+    height: 15px;
+    margin-right: 10px;
+
+    border: 2px solid lightblue;
+
+    border-radius: 2px;
+
+    background-color: ${({ $selected }) => $selected && "lightblue"};
 `;
 
 const Option = ({ text }: ListboxOptionProps) => {
@@ -55,16 +80,18 @@ const Option = ({ text }: ListboxOptionProps) => {
         deregisterOption,
         activeOption,
         onActiveOptionChange,
-        selectedOption,
-        onSelectedOptionChange,
+        selectedOptions,
+        onSelectedOptionsChange,
+        multiselect,
     } = useContext(ListboxContext);
     const optionId = useId();
 
-    const optionData = useMemo(() => {
+    const optionData: ListboxOption = useMemo(() => {
         return {
             element: optionElement,
+            text,
         };
-    }, [optionElement]);
+    }, [optionElement, text]);
 
     useEffect(() => {
         registerOption(optionData);
@@ -73,6 +100,12 @@ const Option = ({ text }: ListboxOptionProps) => {
             deregisterOption(optionData);
         };
     }, [registerOption, deregisterOption, optionData]);
+
+    const isListboxOptionSelected =
+        Array.isArray(selectedOptions) &&
+        selectedOptions.some(
+            (selectedOption) => selectedOption?.element === optionData.element
+        );
 
     return (
         <StyledListboxOption
@@ -83,13 +116,38 @@ const Option = ({ text }: ListboxOptionProps) => {
                     ? optionData.element === activeOption.element
                     : false
             }
-            aria-selected={optionData.element === selectedOption?.element}
+            $selected={isListboxOptionSelected}
+            $multiselect={multiselect}
+            aria-selected={multiselect ? undefined : isListboxOptionSelected}
+            aria-checked={multiselect ? isListboxOptionSelected : undefined}
             ref={(element) => setOptionElement(element)}
             onMouseDown={() => {
                 onActiveOptionChange(optionData);
             }}
             onClick={() => {
-                onSelectedOptionChange(optionData);
+                onSelectedOptionsChange((currentSelectedOptions) => {
+                    if (multiselect) {
+                        if (
+                            currentSelectedOptions &&
+                            currentSelectedOptions.some(
+                                (selectedOption) =>
+                                    selectedOption.element ===
+                                    optionData.element
+                            )
+                        ) {
+                            return currentSelectedOptions.filter(
+                                (selectedOption) =>
+                                    selectedOption !== optionData
+                            );
+                        }
+
+                        if (currentSelectedOptions) {
+                            return [...currentSelectedOptions, optionData];
+                        }
+                    }
+
+                    return [optionData];
+                });
             }}
             onMouseLeave={(evt) => {
                 if (evt.buttons === 1) {
@@ -97,6 +155,11 @@ const Option = ({ text }: ListboxOptionProps) => {
                 }
             }}
         >
+            {multiselect && (
+                <StyledListboxOptionCheckbox
+                    $selected={isListboxOptionSelected}
+                />
+            )}
             <StyledListboxOptionText>{text}</StyledListboxOptionText>
         </StyledListboxOption>
     );

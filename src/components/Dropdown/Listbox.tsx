@@ -1,16 +1,10 @@
-import React, {
-    ReactNode,
-    useCallback,
-    useEffect,
-    useRef,
-    useState,
-} from "react";
+import React, { ReactNode, useCallback, useRef, useState } from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 import useComponentRegistration from "./useComponentRegistration";
 import { ListboxOption } from "./ListboxOption";
 
-type ListboxDiscriminatedProps =
+type ListboxDiscriminatedProps = (
     | {
           "aria-label": string;
           "aria-labelledby"?: string;
@@ -18,11 +12,22 @@ type ListboxDiscriminatedProps =
     | {
           "aria-label"?: string;
           "aria-labelledby": string;
-      };
+      }
+) &
+    (
+        | {
+              selectionFollowsFocus?: false;
+              multiselect?: boolean;
+          }
+        | {
+              selectionFollowsFocus?: true;
+              multiselect?: false;
+          }
+    );
 
 type ListboxNonDiscriminatedProps = {
     "aria-describedby"?: string;
-    selectionFollowsFocus?: boolean;
+
     children?: ReactNode;
 };
 
@@ -45,15 +50,16 @@ const Listbox = ({
     "aria-labelledby": ariaLabelledby,
     "aria-describedby": ariaDescribedby,
     selectionFollowsFocus = false,
+    multiselect = false,
     children,
 }: ListboxProps) => {
     const listboxRef = useRef<HTMLUListElement>(null);
     const [activeOption, setActiveOption] = useState<ListboxOption | null>(
         null
     );
-    const [selectedOption, setSelectedOption] = useState<ListboxOption | null>(
-        null
-    );
+    const [selectedOptions, setSelectedOptions] = useState<
+        ListboxOption[] | null
+    >(null);
 
     const [registerOption, deregisterOption, optionList] =
         useComponentRegistration<ListboxOption>();
@@ -88,7 +94,9 @@ const Listbox = ({
     }, [optionList]);
 
     const getNextOption = useCallback((): ListboxOption | null => {
-        const currentOption = activeOption ?? selectedOption;
+        const currentOption = multiselect
+            ? activeOption
+            : activeOption ?? selectedOptions?.[0];
 
         if (currentOption == null) {
             return getFirstOption();
@@ -106,13 +114,16 @@ const Listbox = ({
     }, [
         getFirstOption,
         activeOption,
-        selectedOption,
+        selectedOptions,
         getIndexOfOption,
         optionList,
+        multiselect,
     ]);
 
     const getPreviousOption = useCallback((): ListboxOption | null => {
-        const currentOption = activeOption ?? selectedOption;
+        const currentOption = multiselect
+            ? activeOption
+            : activeOption ?? selectedOptions?.[0];
 
         if (currentOption == null) {
             return getLastOption();
@@ -130,71 +141,118 @@ const Listbox = ({
     }, [
         getLastOption,
         activeOption,
-        selectedOption,
+        selectedOptions,
         getIndexOfOption,
         optionList,
+        multiselect,
     ]);
 
     return (
-        <StyledListbox
-            role="listbox"
-            aria-label={ariaLabel}
-            aria-labelledby={ariaLabelledby}
-            aria-describedby={ariaDescribedby}
-            tabIndex={0}
-            aria-activedescendant={activeOption?.element?.id}
-            ref={listboxRef}
-            onKeyDown={(evt) => {
-                switch (evt.key) {
-                    case "ArrowUp": {
-                        const previousOption = getPreviousOption();
-                        setActiveOption(previousOption);
-                        selectionFollowsFocus &&
-                            setSelectedOption(previousOption);
-                        break;
+        <>
+            <div>{`Selected Options: "${selectedOptions?.map(
+                (selectedOption) => selectedOption.text
+            )}"`}</div>
+            <StyledListbox
+                role="listbox"
+                aria-label={ariaLabel}
+                aria-labelledby={ariaLabelledby}
+                aria-describedby={ariaDescribedby}
+                tabIndex={0}
+                aria-activedescendant={activeOption?.element?.id}
+                aria-multiselectable={multiselect}
+                ref={listboxRef}
+                onKeyDown={(evt) => {
+                    switch (evt.key) {
+                        case "ArrowUp": {
+                            const previousOption = getPreviousOption();
+                            setActiveOption(previousOption);
+                            selectionFollowsFocus &&
+                                setSelectedOptions(
+                                    previousOption ? [previousOption] : null
+                                );
+                            break;
+                        }
+                        case "ArrowDown": {
+                            const nextOption = getNextOption();
+                            setActiveOption(nextOption);
+                            selectionFollowsFocus &&
+                                setSelectedOptions(
+                                    nextOption ? [nextOption] : null
+                                );
+                            break;
+                        }
+                        case "Home": {
+                            const firstOption = getFirstOption();
+                            setActiveOption(firstOption);
+                            selectionFollowsFocus &&
+                                setSelectedOptions(
+                                    firstOption ? [firstOption] : null
+                                );
+                            break;
+                        }
+                        case "End": {
+                            const lastOption = getLastOption();
+                            setActiveOption(lastOption);
+                            selectionFollowsFocus &&
+                                setSelectedOptions(
+                                    lastOption ? [lastOption] : null
+                                );
+                            break;
+                        }
+                        case " ":
+                        case "Enter": {
+                            setSelectedOptions((currentSelectedOptions) => {
+                                if (activeOption) {
+                                    if (multiselect) {
+                                        if (
+                                            currentSelectedOptions?.some(
+                                                (selectedOption) =>
+                                                    selectedOption.element ===
+                                                    activeOption.element
+                                            )
+                                        ) {
+                                            return currentSelectedOptions.filter(
+                                                (selectedOption) =>
+                                                    selectedOption.element !==
+                                                    activeOption.element
+                                            );
+                                        }
+
+                                        if (currentSelectedOptions) {
+                                            return [
+                                                ...currentSelectedOptions,
+                                                activeOption,
+                                            ];
+                                        }
+                                    }
+
+                                    return [activeOption];
+                                }
+
+                                return currentSelectedOptions;
+                            });
+                        }
                     }
-                    case "ArrowDown": {
-                        const nextOption = getNextOption();
-                        setActiveOption(nextOption);
-                        selectionFollowsFocus && setSelectedOption(nextOption);
-                        break;
-                    }
-                    case "Home": {
-                        const firstOption = getFirstOption();
-                        setActiveOption(firstOption);
-                        selectionFollowsFocus && setSelectedOption(firstOption);
-                        break;
-                    }
-                    case "End": {
-                        const lastOption = getLastOption();
-                        setActiveOption(lastOption);
-                        selectionFollowsFocus && setSelectedOption(lastOption);
-                        break;
-                    }
-                    case " ":
-                    case "Enter": {
-                        !selectionFollowsFocus &&
-                            setSelectedOption(activeOption);
-                    }
-                }
-            }}
-            onBlur={() => {
-                setActiveOption(null);
-            }}
-        >
-            <ListboxContext.Provider
-                value={{
-                    registerOption,
-                    deregisterOption,
-                    activeOption,
-                    onActiveOptionChange: setActiveOption,
-                    selectedOption,
-                    onSelectedOptionChange: setSelectedOption,
+                }}
+                onBlur={() => {
+                    setActiveOption(null);
                 }}
             >
-                {children}
-            </ListboxContext.Provider>
-        </StyledListbox>
+                <ListboxContext.Provider
+                    value={{
+                        registerOption,
+                        deregisterOption,
+                        activeOption,
+                        onActiveOptionChange: setActiveOption,
+                        selectedOptions,
+                        onSelectedOptionsChange: setSelectedOptions,
+                        multiselect,
+                    }}
+                >
+                    {children}
+                </ListboxContext.Provider>
+            </StyledListbox>
+        </>
     );
 };
 
