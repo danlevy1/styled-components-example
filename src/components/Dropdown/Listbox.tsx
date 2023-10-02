@@ -2,7 +2,8 @@ import React, { ReactNode, useCallback, useRef, useState } from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 import useComponentRegistration from "./useComponentRegistration";
-import { ListboxOption } from "./ListboxOption";
+import { ListboxOptionData } from "./ListboxOption";
+import { useControllableState } from "../../hooks";
 
 type ListboxDiscriminatedProps = (
     | {
@@ -27,7 +28,8 @@ type ListboxDiscriminatedProps = (
 
 type ListboxNonDiscriminatedProps = {
     "aria-describedby"?: string;
-
+    value?: string[];
+    onChange?: (newSelectedOptions: string[]) => void;
     children?: ReactNode;
 };
 
@@ -51,21 +53,26 @@ const Listbox = ({
     "aria-describedby": ariaDescribedby,
     selectionFollowsFocus = false,
     multiselect = false,
+    value: externalValue,
+    onChange: externalOnChange,
     children,
 }: ListboxProps) => {
     const listboxRef = useRef<HTMLUListElement>(null);
-    const [activeOption, setActiveOption] = useState<ListboxOption | null>(
+    const [activeOption, setActiveOption] = useState<ListboxOptionData | null>(
         null
     );
-    const [selectedOptions, setSelectedOptions] = useState<
-        ListboxOption[] | null
-    >(null);
+    const [selectedOptionValues, setSelectedOptionValues] =
+        useControllableState<string[]>({
+            value: externalValue,
+            initialValue: [],
+            onChange: externalOnChange,
+        });
 
     const [registerOption, deregisterOption, optionList] =
-        useComponentRegistration<ListboxOption>();
+        useComponentRegistration<ListboxOptionData>();
 
     const getIndexOfOption = useCallback(
-        (option: ListboxOption) => {
+        (option: ListboxOptionData) => {
             for (let i = 0; i < optionList.length; i++) {
                 if (optionList[i].element === option.element) {
                     return i;
@@ -77,7 +84,7 @@ const Listbox = ({
         [optionList]
     );
 
-    const getFirstOption = useCallback((): ListboxOption | null => {
+    const getFirstOption = useCallback((): ListboxOptionData | null => {
         if (optionList.length > 0) {
             return optionList[0];
         }
@@ -85,7 +92,7 @@ const Listbox = ({
         return null;
     }, [optionList]);
 
-    const getLastOption = useCallback((): ListboxOption | null => {
+    const getLastOption = useCallback((): ListboxOptionData | null => {
         if (optionList.length > 0) {
             return optionList[optionList.length - 1];
         }
@@ -93,10 +100,16 @@ const Listbox = ({
         return null;
     }, [optionList]);
 
-    const getNextOption = useCallback((): ListboxOption | null => {
+    const getNextOption = useCallback((): ListboxOptionData | null => {
+        // TODO: Does this work?
         const currentOption = multiselect
             ? activeOption
-            : activeOption ?? selectedOptions?.[0];
+            : activeOption ??
+              optionList[
+                  optionList.findIndex(
+                      ({ value }) => value === selectedOptionValues?.[0]
+                  )
+              ];
 
         if (currentOption == null) {
             return getFirstOption();
@@ -114,16 +127,22 @@ const Listbox = ({
     }, [
         getFirstOption,
         activeOption,
-        selectedOptions,
+        selectedOptionValues,
         getIndexOfOption,
         optionList,
         multiselect,
     ]);
 
-    const getPreviousOption = useCallback((): ListboxOption | null => {
+    const getPreviousOption = useCallback((): ListboxOptionData | null => {
+        // TODO: Does this work?
         const currentOption = multiselect
             ? activeOption
-            : activeOption ?? selectedOptions?.[0];
+            : activeOption ??
+              optionList[
+                  optionList.findIndex(
+                      ({ value }) => value === selectedOptionValues?.[0]
+                  )
+              ];
 
         if (currentOption == null) {
             return getLastOption();
@@ -141,7 +160,7 @@ const Listbox = ({
     }, [
         getLastOption,
         activeOption,
-        selectedOptions,
+        selectedOptionValues,
         getIndexOfOption,
         optionList,
         multiselect,
@@ -149,9 +168,6 @@ const Listbox = ({
 
     return (
         <>
-            <div>{`Selected Options: "${selectedOptions?.map(
-                (selectedOption) => selectedOption.text
-            )}"`}</div>
             <StyledListbox
                 role="listbox"
                 aria-label={ariaLabel}
@@ -167,8 +183,8 @@ const Listbox = ({
                             const previousOption = getPreviousOption();
                             setActiveOption(previousOption);
                             selectionFollowsFocus &&
-                                setSelectedOptions(
-                                    previousOption ? [previousOption] : null
+                                setSelectedOptionValues(
+                                    previousOption ? [previousOption.value] : []
                                 );
                             break;
                         }
@@ -176,8 +192,8 @@ const Listbox = ({
                             const nextOption = getNextOption();
                             setActiveOption(nextOption);
                             selectionFollowsFocus &&
-                                setSelectedOptions(
-                                    nextOption ? [nextOption] : null
+                                setSelectedOptionValues(
+                                    nextOption ? [nextOption.value] : []
                                 );
                             break;
                         }
@@ -185,8 +201,8 @@ const Listbox = ({
                             const firstOption = getFirstOption();
                             setActiveOption(firstOption);
                             selectionFollowsFocus &&
-                                setSelectedOptions(
-                                    firstOption ? [firstOption] : null
+                                setSelectedOptionValues(
+                                    firstOption ? [firstOption.value] : []
                                 );
                             break;
                         }
@@ -194,43 +210,43 @@ const Listbox = ({
                             const lastOption = getLastOption();
                             setActiveOption(lastOption);
                             selectionFollowsFocus &&
-                                setSelectedOptions(
-                                    lastOption ? [lastOption] : null
+                                setSelectedOptionValues(
+                                    lastOption ? [lastOption.value] : []
                                 );
                             break;
                         }
                         case " ":
                         case "Enter": {
-                            setSelectedOptions((currentSelectedOptions) => {
-                                if (activeOption) {
-                                    if (multiselect) {
-                                        if (
-                                            currentSelectedOptions?.some(
-                                                (selectedOption) =>
-                                                    selectedOption.element ===
-                                                    activeOption.element
-                                            )
-                                        ) {
-                                            return currentSelectedOptions.filter(
-                                                (selectedOption) =>
-                                                    selectedOption.element !==
-                                                    activeOption.element
-                                            );
+                            setSelectedOptionValues(
+                                (currentSelectedOptionValues) => {
+                                    if (activeOption) {
+                                        if (multiselect) {
+                                            if (
+                                                currentSelectedOptionValues.includes(
+                                                    activeOption.value
+                                                )
+                                            ) {
+                                                return currentSelectedOptionValues.filter(
+                                                    (selectedOptionValue) =>
+                                                        selectedOptionValue !==
+                                                        activeOption?.value
+                                                );
+                                            }
+
+                                            if (currentSelectedOptionValues) {
+                                                return [
+                                                    ...currentSelectedOptionValues,
+                                                    activeOption.value,
+                                                ];
+                                            }
                                         }
 
-                                        if (currentSelectedOptions) {
-                                            return [
-                                                ...currentSelectedOptions,
-                                                activeOption,
-                                            ];
-                                        }
+                                        return [activeOption.value];
                                     }
 
-                                    return [activeOption];
+                                    return currentSelectedOptionValues;
                                 }
-
-                                return currentSelectedOptions;
-                            });
+                            );
                         }
                     }
                 }}
@@ -244,8 +260,8 @@ const Listbox = ({
                         deregisterOption,
                         activeOption,
                         onActiveOptionChange: setActiveOption,
-                        selectedOptions,
-                        onSelectedOptionsChange: setSelectedOptions,
+                        selectedOptionValues,
+                        onSelectedOptionValuesChange: setSelectedOptionValues,
                         multiselect,
                     }}
                 >

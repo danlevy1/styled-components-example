@@ -2,13 +2,14 @@ import React, { useContext, useEffect, useId, useMemo, useState } from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 
-export type ListboxOption = {
+export type ListboxOptionData = {
     element: HTMLLIElement | null;
-    text: string;
+    value: string;
 };
 
 export interface ListboxOptionProps {
     text: string;
+    value: string;
 }
 
 interface StyledListboxOptionProps {
@@ -71,7 +72,7 @@ const StyledListboxOptionCheckbox = styled.div<StyledListboxOptionCheckboxProps>
     background-color: ${({ $selected }) => $selected && "lightblue"};
 `;
 
-const Option = ({ text }: ListboxOptionProps) => {
+const ListboxOption = ({ text, value }: ListboxOptionProps) => {
     const [optionElement, setOptionElement] = useState<HTMLLIElement | null>(
         null
     );
@@ -80,18 +81,18 @@ const Option = ({ text }: ListboxOptionProps) => {
         deregisterOption,
         activeOption,
         onActiveOptionChange,
-        selectedOptions,
-        onSelectedOptionsChange,
+        selectedOptionValues,
+        onSelectedOptionValuesChange,
         multiselect,
     } = useContext(ListboxContext);
     const optionId = useId();
 
-    const optionData: ListboxOption = useMemo(() => {
+    const optionData = useMemo(() => {
         return {
             element: optionElement,
-            text,
-        };
-    }, [optionElement, text]);
+            value,
+        } as ListboxOptionData;
+    }, [optionElement, value]);
 
     useEffect(() => {
         registerOption(optionData);
@@ -99,13 +100,11 @@ const Option = ({ text }: ListboxOptionProps) => {
         return () => {
             deregisterOption(optionData);
         };
-    }, [registerOption, deregisterOption, optionData]);
+    }, [registerOption, deregisterOption, optionData, value]);
 
     const isListboxOptionSelected =
-        Array.isArray(selectedOptions) &&
-        selectedOptions.some(
-            (selectedOption) => selectedOption?.element === optionData.element
-        );
+        Array.isArray(selectedOptionValues) &&
+        selectedOptionValues.includes(optionData.value);
 
     return (
         <StyledListboxOption
@@ -125,28 +124,29 @@ const Option = ({ text }: ListboxOptionProps) => {
                 onActiveOptionChange(optionData);
             }}
             onClick={() => {
-                onSelectedOptionsChange((currentSelectedOptions) => {
+                onSelectedOptionValuesChange((currentSelectedOptionValues) => {
                     if (multiselect) {
                         if (
-                            currentSelectedOptions &&
-                            currentSelectedOptions.some(
-                                (selectedOption) =>
-                                    selectedOption.element ===
-                                    optionData.element
+                            currentSelectedOptionValues &&
+                            currentSelectedOptionValues.includes(
+                                optionData.value
                             )
                         ) {
-                            return currentSelectedOptions.filter(
-                                (selectedOption) =>
-                                    selectedOption !== optionData
+                            return currentSelectedOptionValues.filter(
+                                (selectedOptionValue) =>
+                                    selectedOptionValue !== optionData.value
                             );
                         }
 
-                        if (currentSelectedOptions) {
-                            return [...currentSelectedOptions, optionData];
+                        if (currentSelectedOptionValues) {
+                            return [
+                                ...currentSelectedOptionValues,
+                                optionData.value,
+                            ];
                         }
                     }
 
-                    return [optionData];
+                    return [optionData.value];
                 });
             }}
             onMouseLeave={(evt) => {
@@ -165,4 +165,4 @@ const Option = ({ text }: ListboxOptionProps) => {
     );
 };
 
-export default Option;
+export default ListboxOption;
