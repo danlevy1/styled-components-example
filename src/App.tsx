@@ -18,7 +18,8 @@ const ListboxExample = () => {
                 <Listbox
                     aria-label="example label"
                     aria-describedby="ex"
-                    multiselect
+                    // multiselect
+                    // selectionFollowsFocus
                     value={value}
                     onChange={onChange}
                 >

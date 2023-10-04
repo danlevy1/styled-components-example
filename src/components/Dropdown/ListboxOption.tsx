@@ -102,9 +102,9 @@ const ListboxOption = ({ text, value }: ListboxOptionProps) => {
         };
     }, [registerOption, deregisterOption, optionData, value]);
 
-    const isListboxOptionSelected =
-        Array.isArray(selectedOptionValues) &&
-        selectedOptionValues.includes(optionData.value);
+    const isListboxOptionSelected = selectedOptionValues.includes(
+        optionData.value
+    );
 
     return (
         <StyledListboxOption

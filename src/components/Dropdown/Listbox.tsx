@@ -1,4 +1,10 @@
-import React, { ReactNode, useCallback, useRef, useState } from "react";
+import React, {
+    KeyboardEventHandler,
+    ReactNode,
+    useCallback,
+    useRef,
+    useState,
+} from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 import useComponentRegistration from "./useComponentRegistration";
@@ -71,100 +77,162 @@ const Listbox = ({
     const [registerOption, deregisterOption, optionList] =
         useComponentRegistration<ListboxOptionData>();
 
-    const getIndexOfOption = useCallback(
-        (option: ListboxOptionData) => {
-            for (let i = 0; i < optionList.length; i++) {
-                if (optionList[i].element === option.element) {
-                    return i;
-                }
-            }
-
-            return -1;
+    const getIndexOfOptionInList = useCallback(
+        (optionValue: string): number => {
+            return optionList.findIndex(({ value }) => value === optionValue);
         },
         [optionList]
     );
 
     const getFirstOption = useCallback((): ListboxOptionData | null => {
-        if (optionList.length > 0) {
-            return optionList[0];
-        }
-
-        return null;
+        return optionList.length > 0 ? optionList[0] : null;
     }, [optionList]);
 
     const getLastOption = useCallback((): ListboxOptionData | null => {
-        if (optionList.length > 0) {
-            return optionList[optionList.length - 1];
-        }
-
-        return null;
+        return optionList.length > 0 ? optionList[optionList.length - 1] : null;
     }, [optionList]);
 
-    const getNextOption = useCallback((): ListboxOptionData | null => {
-        // TODO: Does this work?
-        const currentOption = multiselect
-            ? activeOption
-            : activeOption ??
-              optionList[
-                  optionList.findIndex(
-                      ({ value }) => value === selectedOptionValues?.[0]
-                  )
-              ];
+    const getCurrentOption = useCallback((): {
+        currentOption: ListboxOptionData | null;
+        indexOfCurrentOption: number;
+    } => {
+        let currentOption: ListboxOptionData | null;
+        const indexOfFirstSelectedOption = getIndexOfOptionInList(
+            selectedOptionValues?.[0]
+        );
 
-        if (currentOption == null) {
+        if (multiselect === true || activeOption !== null) {
+            currentOption = activeOption;
+        } else {
+            currentOption = optionList[indexOfFirstSelectedOption];
+        }
+
+        return {
+            currentOption,
+            indexOfCurrentOption: currentOption
+                ? getIndexOfOptionInList(currentOption.value)
+                : -1,
+        };
+    }, [
+        getIndexOfOptionInList,
+        selectedOptionValues,
+        multiselect,
+        activeOption,
+        optionList,
+    ]);
+
+    const getNextOption = useCallback((): ListboxOptionData | null => {
+        const { currentOption, indexOfCurrentOption } = getCurrentOption();
+
+        if (currentOption === null) {
+            // This occurs on the first arrow down
             return getFirstOption();
         }
 
-        const indexOfCurrentOption = currentOption
-            ? getIndexOfOption(currentOption)
-            : -1;
-
         if (indexOfCurrentOption === optionList.length - 1) {
+            // There is no next option
             return currentOption;
         }
 
         return optionList[indexOfCurrentOption + 1];
-    }, [
-        getFirstOption,
-        activeOption,
-        selectedOptionValues,
-        getIndexOfOption,
-        optionList,
-        multiselect,
-    ]);
+    }, [getCurrentOption, getFirstOption, optionList]);
 
     const getPreviousOption = useCallback((): ListboxOptionData | null => {
-        // TODO: Does this work?
-        const currentOption = multiselect
-            ? activeOption
-            : activeOption ??
-              optionList[
-                  optionList.findIndex(
-                      ({ value }) => value === selectedOptionValues?.[0]
-                  )
-              ];
+        const { currentOption, indexOfCurrentOption } = getCurrentOption();
 
         if (currentOption == null) {
+            // This occurs on the first arrow up
             return getLastOption();
         }
 
-        const indexOfCurrentOption = currentOption
-            ? getIndexOfOption(currentOption)
-            : optionList.length - 1;
-
         if (indexOfCurrentOption === 0) {
+            // There is no previous option
             return currentOption;
         }
 
         return optionList[indexOfCurrentOption - 1];
-    }, [
-        getLastOption,
-        activeOption,
-        selectedOptionValues,
-        getIndexOfOption,
-        optionList,
-        multiselect,
-    ]);
+    }, [getCurrentOption, getLastOption, optionList]);
+
+    const handleKeyDown: KeyboardEventHandler = (evt): void => {
+        switch (evt.key) {
+            case "ArrowUp": {
+                const previousOption = getPreviousOption();
+                setActiveOption(previousOption);
+                if (selectionFollowsFocus === true) {
+                    setSelectedOptionValues(
+                        previousOption ? [previousOption.value] : []
+                    );
+                }
+                break;
+            }
+            case "ArrowDown": {
+                const nextOption = getNextOption();
+                setActiveOption(nextOption);
+                if (selectionFollowsFocus === true) {
+                    setSelectedOptionValues(
+                        nextOption ? [nextOption.value] : []
+                    );
+                }
+
+                break;
+            }
+            case "Home": {
+                const firstOption = getFirstOption();
+                setActiveOption(firstOption);
+                if (selectionFollowsFocus === true) {
+                    setSelectedOptionValues(
+                        firstOption ? [firstOption.value] : []
+                    );
+                }
+
+                break;
+            }
+            case "End": {
+                const lastOption = getLastOption();
+                setActiveOption(lastOption);
+                if (selectionFollowsFocus === true) {
+                    setSelectedOptionValues(
+                        lastOption ? [lastOption.value] : []
+                    );
+                }
+
+                break;
+            }
+            case " ":
+            case "Enter": {
+                setSelectedOptionValues((currentSelectedOptionValues) => {
+                    if (activeOption) {
+                        if (multiselect) {
+                            if (
+                                currentSelectedOptionValues.includes(
+                                    activeOption.value
+                                )
+                            ) {
+                                // Removes the active option value from the list
+                                return currentSelectedOptionValues.filter(
+                                    (selectedOptionValue) =>
+                                        selectedOptionValue !==
+                                        activeOption.value
+                                );
+                            }
+
+                            // Adds the active option value to the end of the list
+                            return [
+                                ...currentSelectedOptionValues,
+                                activeOption.value,
+                            ];
+                        }
+
+                        // Single-select - sets the list to include only the active option value
+                        return [activeOption.value];
+                    }
+
+                    // No active option - returns the current list
+                    return currentSelectedOptionValues;
+                });
+            }
+        }
+    };
 
     return (
         <>
@@ -177,79 +245,7 @@ const Listbox = ({
                 aria-activedescendant={activeOption?.element?.id}
                 aria-multiselectable={multiselect}
                 ref={listboxRef}
-                onKeyDown={(evt) => {
-                    switch (evt.key) {
-                        case "ArrowUp": {
-                            const previousOption = getPreviousOption();
-                            setActiveOption(previousOption);
-                            selectionFollowsFocus &&
-                                setSelectedOptionValues(
-                                    previousOption ? [previousOption.value] : []
-                                );
-                            break;
-                        }
-                        case "ArrowDown": {
-                            const nextOption = getNextOption();
-                            setActiveOption(nextOption);
-                            selectionFollowsFocus &&
-                                setSelectedOptionValues(
-                                    nextOption ? [nextOption.value] : []
-                                );
-                            break;
-                        }
-                        case "Home": {
-                            const firstOption = getFirstOption();
-                            setActiveOption(firstOption);
-                            selectionFollowsFocus &&
-                                setSelectedOptionValues(
-                                    firstOption ? [firstOption.value] : []
-                                );
-                            break;
-                        }
-                        case "End": {
-                            const lastOption = getLastOption();
-                            setActiveOption(lastOption);
-                            selectionFollowsFocus &&
-                                setSelectedOptionValues(
-                                    lastOption ? [lastOption.value] : []
-                                );
-                            break;
-                        }
-                        case " ":
-                        case "Enter": {
-                            setSelectedOptionValues(
-                                (currentSelectedOptionValues) => {
-                                    if (activeOption) {
-                                        if (multiselect) {
-                                            if (
-                                                currentSelectedOptionValues.includes(
-                                                    activeOption.value
-                                                )
-                                            ) {
-                                                return currentSelectedOptionValues.filter(
-                                                    (selectedOptionValue) =>
-                                                        selectedOptionValue !==
-                                                        activeOption?.value
-                                                );
-                                            }
-
-                                            if (currentSelectedOptionValues) {
-                                                return [
-                                                    ...currentSelectedOptionValues,
-                                                    activeOption.value,
-                                                ];
-                                            }
-                                        }
-
-                                        return [activeOption.value];
-                                    }
-
-                                    return currentSelectedOptionValues;
-                                }
-                            );
-                        }
-                    }
-                }}
+                onKeyDown={handleKeyDown}
                 onBlur={() => {
                     setActiveOption(null);
                 }}
