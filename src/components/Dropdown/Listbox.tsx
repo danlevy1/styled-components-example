@@ -153,11 +153,57 @@ const Listbox = ({
         return optionList[indexOfCurrentOption - 1];
     }, [getCurrentOption, getLastOption, optionList]);
 
+    const toggleOptionSelection = useCallback(
+        (selectedOptionValues: string[], optionToToggle: string): string[] => {
+            if (selectedOptionValues.includes(optionToToggle)) {
+                // Removes the active option value from the list
+                return selectedOptionValues.filter(
+                    (selectedOptionValue) =>
+                        selectedOptionValue !== optionToToggle
+                );
+            }
+
+            // Adds the active option value to the end of the list
+            return [...selectedOptionValues, optionToToggle];
+        },
+        []
+    );
+
+    const selectAllOptionsInRange = useCallback(
+        (
+            selectedOptionValues: string[],
+            startIndexInclusive: number,
+            endIndexInclusive: number
+        ): string[] => {
+            const optionValuesInRange = optionList
+                .slice(startIndexInclusive, endIndexInclusive + 1)
+                .map(({ value }) => value);
+            return Array.from(
+                new Set([...selectedOptionValues, ...optionValuesInRange])
+            );
+        },
+        [optionList]
+    );
+
     const handleKeyDown: KeyboardEventHandler = (evt): void => {
         switch (evt.key) {
             case "ArrowUp": {
                 const previousOption = getPreviousOption();
                 setActiveOption(previousOption);
+
+                if (
+                    multiselect === true &&
+                    evt.shiftKey === true &&
+                    previousOption !== null
+                ) {
+                    setSelectedOptionValues((currentSelectedOptionValues) => {
+                        return toggleOptionSelection(
+                            currentSelectedOptionValues,
+                            previousOption.value
+                        );
+                    });
+                }
+
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
                         previousOption ? [previousOption.value] : []
@@ -168,6 +214,20 @@ const Listbox = ({
             case "ArrowDown": {
                 const nextOption = getNextOption();
                 setActiveOption(nextOption);
+
+                if (
+                    multiselect === true &&
+                    evt.shiftKey === true &&
+                    nextOption !== null
+                ) {
+                    setSelectedOptionValues((currentSelectedOptionValues) => {
+                        return toggleOptionSelection(
+                            currentSelectedOptionValues,
+                            nextOption.value
+                        );
+                    });
+                }
+
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
                         nextOption ? [nextOption.value] : []
@@ -179,6 +239,21 @@ const Listbox = ({
             case "Home": {
                 const firstOption = getFirstOption();
                 setActiveOption(firstOption);
+
+                if (
+                    multiselect === true &&
+                    (evt.ctrlKey === true || evt.metaKey == true) &&
+                    evt.shiftKey === true
+                ) {
+                    setSelectedOptionValues((currentSelectedOptionValues) => {
+                        return selectAllOptionsInRange(
+                            currentSelectedOptionValues,
+                            0,
+                            getCurrentOption().indexOfCurrentOption
+                        );
+                    });
+                }
+
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
                         firstOption ? [firstOption.value] : []
@@ -190,6 +265,21 @@ const Listbox = ({
             case "End": {
                 const lastOption = getLastOption();
                 setActiveOption(lastOption);
+
+                if (
+                    multiselect === true &&
+                    (evt.ctrlKey === true || evt.metaKey == true) &&
+                    evt.shiftKey === true
+                ) {
+                    setSelectedOptionValues((currentSelectedOptionValues) => {
+                        return selectAllOptionsInRange(
+                            currentSelectedOptionValues,
+                            getCurrentOption().indexOfCurrentOption,
+                            optionList.length - 1
+                        );
+                    });
+                }
+
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
                         lastOption ? [lastOption.value] : []
@@ -198,29 +288,32 @@ const Listbox = ({
 
                 break;
             }
+            case "a":
+                if (
+                    multiselect === true &&
+                    (evt.ctrlKey === true || evt.metaKey == true)
+                ) {
+                    setSelectedOptionValues((currentSelectedOptionValues) => {
+                        return selectAllOptionsInRange(
+                            currentSelectedOptionValues,
+                            0,
+                            optionList.length - 1
+                        );
+                    });
+
+                    evt.preventDefault();
+                }
+
+                break;
             case " ":
             case "Enter": {
                 setSelectedOptionValues((currentSelectedOptionValues) => {
                     if (activeOption) {
                         if (multiselect) {
-                            if (
-                                currentSelectedOptionValues.includes(
-                                    activeOption.value
-                                )
-                            ) {
-                                // Removes the active option value from the list
-                                return currentSelectedOptionValues.filter(
-                                    (selectedOptionValue) =>
-                                        selectedOptionValue !==
-                                        activeOption.value
-                                );
-                            }
-
-                            // Adds the active option value to the end of the list
-                            return [
-                                ...currentSelectedOptionValues,
-                                activeOption.value,
-                            ];
+                            return toggleOptionSelection(
+                                currentSelectedOptionValues,
+                                activeOption.value
+                            );
                         }
 
                         // Single-select - sets the list to include only the active option value
