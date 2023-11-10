@@ -14,12 +14,13 @@ const ListboxExample = () => {
             <h1>LISTBOX COMPONENT</h1>
             <div id="ex">example description</div>
             <div>Selected Values: {JSON.stringify(value)}</div>
-            <div style={{ margin: "30px 0 0 30px" }}>
+            <div style={{ margin: "30px 30px 0px 30px", height: "200px" }}>
                 <Listbox
                     aria-label="example label"
                     aria-describedby="ex"
                     multiselect
                     // selectionFollowsFocus
+                    isVirtualized
                     value={value}
                     onChange={onChange}
                 >

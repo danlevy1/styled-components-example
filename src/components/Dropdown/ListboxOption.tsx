@@ -1,15 +1,12 @@
-import React, { useContext, useEffect, useId, useMemo, useState } from "react";
+import React, { CSSProperties, ForwardedRef, useContext, useId } from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
-
-export type ListboxOptionData = {
-    element: HTMLLIElement | null;
-    value: string;
-};
 
 export interface ListboxOptionProps {
     text: string;
     value: string;
+    private_windowingStyles?: CSSProperties;
+    private_windowingRef?: ForwardedRef<HTMLDivElement>;
 }
 
 interface StyledListboxOptionProps {
@@ -22,7 +19,7 @@ interface StyledListboxOptionCheckboxProps {
     $selected: boolean;
 }
 
-const StyledListboxOption = styled.li<StyledListboxOptionProps>`
+const StyledListboxOption = styled.div<StyledListboxOptionProps>`
     display: flex;
     justify-content: start;
     align-items: center;
@@ -72,86 +69,61 @@ const StyledListboxOptionCheckbox = styled.div<StyledListboxOptionCheckboxProps>
     background-color: ${({ $selected }) => $selected && "lightblue"};
 `;
 
-const ListboxOption = ({ text, value }: ListboxOptionProps) => {
-    const [optionElement, setOptionElement] = useState<HTMLLIElement | null>(
-        null
-    );
+const ListboxOption = ({
+    text,
+    value,
+    private_windowingStyles,
+    private_windowingRef,
+}: ListboxOptionProps) => {
     const {
-        registerOption,
-        deregisterOption,
-        activeOption,
-        onActiveOptionChange,
+        activeOptionValue,
+        onActiveOptionValueChange,
         selectedOptionValues,
         onSelectedOptionValuesChange,
         multiselect,
     } = useContext(ListboxContext);
     const optionId = useId();
 
-    const optionData = useMemo(() => {
-        return {
-            element: optionElement,
-            value,
-        } as ListboxOptionData;
-    }, [optionElement, value]);
-
-    useEffect(() => {
-        registerOption(optionData);
-
-        return () => {
-            deregisterOption(optionData);
-        };
-    }, [registerOption, deregisterOption, optionData, value]);
-
-    const isListboxOptionSelected = selectedOptionValues.includes(
-        optionData.value
-    );
+    const isListboxOptionSelected = selectedOptionValues.includes(value);
 
     return (
         <StyledListboxOption
             id={optionId}
             role="option"
-            $active={
-                optionData.element && activeOption?.element
-                    ? optionData.element === activeOption.element
-                    : false
-            }
+            $active={activeOptionValue ? value === activeOptionValue : false}
             $selected={isListboxOptionSelected}
             $multiselect={multiselect}
             aria-selected={multiselect ? undefined : isListboxOptionSelected}
             aria-checked={multiselect ? isListboxOptionSelected : undefined}
-            ref={(element) => setOptionElement(element)}
+            ref={private_windowingRef}
+            style={private_windowingStyles}
             onMouseDown={() => {
-                onActiveOptionChange(optionData);
+                onActiveOptionValueChange(value);
             }}
             onClick={() => {
                 onSelectedOptionValuesChange((currentSelectedOptionValues) => {
                     if (multiselect) {
                         if (
                             currentSelectedOptionValues &&
-                            currentSelectedOptionValues.includes(
-                                optionData.value
-                            )
+                            currentSelectedOptionValues.includes(value)
                         ) {
                             return currentSelectedOptionValues.filter(
                                 (selectedOptionValue) =>
-                                    selectedOptionValue !== optionData.value
+                                    selectedOptionValue !== value
                             );
                         }
 
                         if (currentSelectedOptionValues) {
-                            return [
-                                ...currentSelectedOptionValues,
-                                optionData.value,
-                            ];
+                            return [...currentSelectedOptionValues, value];
                         }
                     }
 
-                    return [optionData.value];
+                    return [value];
                 });
             }}
             onMouseLeave={(evt) => {
                 if (evt.buttons === 1) {
-                    onActiveOptionChange(null);
+                    onActiveOptionValueChange(null);
                 }
             }}
         >

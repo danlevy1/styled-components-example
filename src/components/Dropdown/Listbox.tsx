@@ -1,15 +1,19 @@
 import React, {
+    Children,
     KeyboardEventHandler,
+    ReactElement,
     ReactNode,
     useCallback,
+    useMemo,
     useRef,
     useState,
 } from "react";
 import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
-import useComponentRegistration from "./useComponentRegistration";
-import { ListboxOptionData } from "./ListboxOption";
+import ListboxOption, { ListboxOptionProps } from "./ListboxOption";
 import { useControllableState } from "../../hooks";
+import { ListboxGroup } from "./ListboxGroup";
+import { VirtualizedList } from "./VirtualizedList";
 
 type ListboxDiscriminatedProps = (
     | {
@@ -36,21 +40,23 @@ type ListboxNonDiscriminatedProps = {
     "aria-describedby"?: string;
     value?: string[];
     onChange?: (newSelectedOptions: string[]) => void;
+    isVirtualized?: boolean;
     children?: ReactNode;
 };
 
 export type ListboxProps = ListboxDiscriminatedProps &
     ListboxNonDiscriminatedProps;
 
-const StyledListbox = styled.ul`
-    display: inline-block;
-    min-width: 200px;
-    max-width: 500px;
+const StyledListbox = styled.div`
+    display: block;
+    width: 100%;
+    height: 100%;
     background-color: #fcfcfc;
     border-radius: 4px;
     border: 1px solid #c7c7c7;
     box-shadow: 0px 0px 10px rgba(227, 227, 227, 0.9);
     padding: 10px 0;
+    overflow: auto;
 `;
 
 const Listbox = ({
@@ -61,10 +67,11 @@ const Listbox = ({
     multiselect = false,
     value: externalValue,
     onChange: externalOnChange,
+    isVirtualized = false,
     children,
 }: ListboxProps) => {
     const listboxRef = useRef<HTMLUListElement>(null);
-    const [activeOption, setActiveOption] = useState<ListboxOptionData | null>(
+    const [activeOptionValue, setActiveOptionValue] = useState<string | null>(
         null
     );
     const [selectedOptionValues, setSelectedOptionValues] =
@@ -74,75 +81,104 @@ const Listbox = ({
             onChange: externalOnChange,
         });
 
-    const [registerOption, deregisterOption, optionList] =
-        useComponentRegistration<ListboxOptionData>();
+    const groupsAndOptionsFlatList = useMemo(() => {
+        const flatArray: ReactElement[] = [];
+
+        Children.forEach(children, (_child) => {
+            const child = _child as ReactElement;
+            flatArray.push(child);
+
+            if ((child as ReactElement).type === ListboxGroup) {
+                const childrenOfListboxGroup = child.props.children;
+                flatArray.push(
+                    ...(Children.toArray(
+                        childrenOfListboxGroup
+                    ) as ReactElement[])
+                );
+            }
+        });
+
+        return flatArray;
+    }, [children]);
+
+    const optionValuesList = useMemo((): string[] => {
+        return (
+            groupsAndOptionsFlatList.filter((child) => {
+                return (child as ReactElement).type === ListboxOption;
+            }) as ReactElement<ListboxOptionProps>[]
+        ).map((child) => child.props.value);
+    }, [groupsAndOptionsFlatList]);
 
     const getIndexOfOptionInList = useCallback(
         (optionValue: string): number => {
-            return optionList.findIndex(({ value }) => value === optionValue);
+            return optionValuesList.findIndex((value) => value === optionValue);
         },
-        [optionList]
+        [optionValuesList]
     );
 
-    const getFirstOption = useCallback((): ListboxOptionData | null => {
-        return optionList.length > 0 ? optionList[0] : null;
-    }, [optionList]);
+    const getFirstOptionValue = useCallback((): string | null => {
+        return optionValuesList.length > 0 ? optionValuesList[0] : null;
+    }, [optionValuesList]);
 
-    const getLastOption = useCallback((): ListboxOptionData | null => {
-        return optionList.length > 0 ? optionList[optionList.length - 1] : null;
-    }, [optionList]);
+    const getLastOptionValue = useCallback((): string | null => {
+        return optionValuesList.length > 0
+            ? optionValuesList[optionValuesList.length - 1]
+            : null;
+    }, [optionValuesList]);
 
-    const getCurrentOption = useCallback((): {
-        currentOption: ListboxOptionData | null;
+    const getCurrentOptionValue = useCallback((): {
+        currentOptionValue: string | null;
         indexOfCurrentOption: number;
     } => {
-        let currentOption: ListboxOptionData | null;
+        let currentOptionValue: string | null;
         const indexOfFirstSelectedOption = getIndexOfOptionInList(
             selectedOptionValues?.[0]
         );
 
-        if (multiselect === true || activeOption !== null) {
-            currentOption = activeOption;
+        if (multiselect === true || activeOptionValue !== null) {
+            currentOptionValue = activeOptionValue;
         } else {
-            currentOption = optionList[indexOfFirstSelectedOption];
+            currentOptionValue = optionValuesList[indexOfFirstSelectedOption];
         }
 
         return {
-            currentOption,
-            indexOfCurrentOption: currentOption
-                ? getIndexOfOptionInList(currentOption.value)
+            currentOptionValue,
+            indexOfCurrentOption: currentOptionValue
+                ? getIndexOfOptionInList(currentOptionValue)
                 : -1,
         };
     }, [
         getIndexOfOptionInList,
         selectedOptionValues,
         multiselect,
-        activeOption,
-        optionList,
+        activeOptionValue,
+        optionValuesList,
     ]);
 
-    const getNextOption = useCallback((): ListboxOptionData | null => {
-        const { currentOption, indexOfCurrentOption } = getCurrentOption();
+    const getNextOptionValue = useCallback((): string | null => {
+        const { currentOptionValue: currentOption, indexOfCurrentOption } =
+            getCurrentOptionValue();
 
         if (currentOption === null) {
             // This occurs on the first arrow down
-            return getFirstOption();
+            return getFirstOptionValue();
         }
 
-        if (indexOfCurrentOption === optionList.length - 1) {
+        if (indexOfCurrentOption === optionValuesList.length - 1) {
             // There is no next option
             return currentOption;
         }
 
-        return optionList[indexOfCurrentOption + 1];
-    }, [getCurrentOption, getFirstOption, optionList]);
+        return optionValuesList[indexOfCurrentOption + 1];
+    }, [getCurrentOptionValue, getFirstOptionValue, optionValuesList]);
 
-    const getPreviousOption = useCallback((): ListboxOptionData | null => {
-        const { currentOption, indexOfCurrentOption } = getCurrentOption();
+    const getPreviousOptionValue = useCallback((): string | null => {
+        const { currentOptionValue: currentOption, indexOfCurrentOption } =
+            getCurrentOptionValue();
 
         if (currentOption == null) {
             // This occurs on the first arrow up
-            return getLastOption();
+            return getLastOptionValue();
         }
 
         if (indexOfCurrentOption === 0) {
@@ -150,8 +186,8 @@ const Listbox = ({
             return currentOption;
         }
 
-        return optionList[indexOfCurrentOption - 1];
-    }, [getCurrentOption, getLastOption, optionList]);
+        return optionValuesList[indexOfCurrentOption - 1];
+    }, [getCurrentOptionValue, getLastOptionValue, optionValuesList]);
 
     const toggleOptionSelection = useCallback(
         (selectedOptionValues: string[], optionToToggle: string): string[] => {
@@ -169,76 +205,77 @@ const Listbox = ({
         []
     );
 
-    const selectAllOptionsInRange = useCallback(
+    const selectAllOptionValuesInRange = useCallback(
         (
             selectedOptionValues: string[],
             startIndexInclusive: number,
             endIndexInclusive: number
         ): string[] => {
-            const optionValuesInRange = optionList
-                .slice(startIndexInclusive, endIndexInclusive + 1)
-                .map(({ value }) => value);
+            const optionValuesInRange = optionValuesList.slice(
+                startIndexInclusive,
+                endIndexInclusive + 1
+            );
             return Array.from(
                 new Set([...selectedOptionValues, ...optionValuesInRange])
             );
         },
-        [optionList]
+        [optionValuesList]
     );
 
     const handleKeyDown: KeyboardEventHandler = (evt): void => {
         switch (evt.key) {
             case "ArrowUp": {
-                const previousOption = getPreviousOption();
-                setActiveOption(previousOption);
+                const previousOptionValue = getPreviousOptionValue();
+                setActiveOptionValue(previousOptionValue);
 
                 if (
                     multiselect === true &&
                     evt.shiftKey === true &&
-                    previousOption !== null
+                    previousOptionValue !== null
                 ) {
                     setSelectedOptionValues((currentSelectedOptionValues) => {
                         return toggleOptionSelection(
                             currentSelectedOptionValues,
-                            previousOption.value
+                            previousOptionValue
                         );
                     });
                 }
 
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
-                        previousOption ? [previousOption.value] : []
+                        previousOptionValue ? [previousOptionValue] : []
                     );
                 }
                 break;
             }
             case "ArrowDown": {
-                const nextOption = getNextOption();
-                setActiveOption(nextOption);
+                const nextOptionValue = getNextOptionValue();
+                setActiveOptionValue(nextOptionValue);
 
                 if (
                     multiselect === true &&
                     evt.shiftKey === true &&
-                    nextOption !== null
+                    nextOptionValue !== null
                 ) {
                     setSelectedOptionValues((currentSelectedOptionValues) => {
                         return toggleOptionSelection(
                             currentSelectedOptionValues,
-                            nextOption.value
+                            nextOptionValue
                         );
                     });
                 }
 
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
-                        nextOption ? [nextOption.value] : []
+                        nextOptionValue ? [nextOptionValue] : []
                     );
                 }
 
                 break;
             }
             case "Home": {
-                const firstOption = getFirstOption();
-                setActiveOption(firstOption);
+                const firstOptionValue = getFirstOptionValue();
+                setActiveOptionValue(firstOptionValue);
 
                 if (
                     multiselect === true &&
@@ -246,25 +283,25 @@ const Listbox = ({
                     evt.shiftKey === true
                 ) {
                     setSelectedOptionValues((currentSelectedOptionValues) => {
-                        return selectAllOptionsInRange(
+                        return selectAllOptionValuesInRange(
                             currentSelectedOptionValues,
                             0,
-                            getCurrentOption().indexOfCurrentOption
+                            getCurrentOptionValue().indexOfCurrentOption
                         );
                     });
                 }
 
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
-                        firstOption ? [firstOption.value] : []
+                        firstOptionValue ? [firstOptionValue] : []
                     );
                 }
 
                 break;
             }
             case "End": {
-                const lastOption = getLastOption();
-                setActiveOption(lastOption);
+                const lastOptionValue = getLastOptionValue();
+                setActiveOptionValue(lastOptionValue);
 
                 if (
                     multiselect === true &&
@@ -272,17 +309,17 @@ const Listbox = ({
                     evt.shiftKey === true
                 ) {
                     setSelectedOptionValues((currentSelectedOptionValues) => {
-                        return selectAllOptionsInRange(
+                        return selectAllOptionValuesInRange(
                             currentSelectedOptionValues,
-                            getCurrentOption().indexOfCurrentOption,
-                            optionList.length - 1
+                            getCurrentOptionValue().indexOfCurrentOption,
+                            optionValuesList.length - 1
                         );
                     });
                 }
 
                 if (selectionFollowsFocus === true) {
                     setSelectedOptionValues(
-                        lastOption ? [lastOption.value] : []
+                        lastOptionValue ? [lastOptionValue] : []
                     );
                 }
 
@@ -294,10 +331,10 @@ const Listbox = ({
                     (evt.ctrlKey === true || evt.metaKey == true)
                 ) {
                     setSelectedOptionValues((currentSelectedOptionValues) => {
-                        return selectAllOptionsInRange(
+                        return selectAllOptionValuesInRange(
                             currentSelectedOptionValues,
                             0,
-                            optionList.length - 1
+                            optionValuesList.length - 1
                         );
                     });
 
@@ -308,16 +345,16 @@ const Listbox = ({
             case " ":
             case "Enter": {
                 setSelectedOptionValues((currentSelectedOptionValues) => {
-                    if (activeOption) {
+                    if (activeOptionValue) {
                         if (multiselect) {
                             return toggleOptionSelection(
                                 currentSelectedOptionValues,
-                                activeOption.value
+                                activeOptionValue
                             );
                         }
 
                         // Single-select - sets the list to include only the active option value
-                        return [activeOption.value];
+                        return [activeOptionValue];
                     }
 
                     // No active option - returns the current list
@@ -335,26 +372,30 @@ const Listbox = ({
                 aria-labelledby={ariaLabelledby}
                 aria-describedby={ariaDescribedby}
                 tabIndex={0}
-                aria-activedescendant={activeOption?.element?.id}
+                // aria-activedescendant={
+                //     activeOptionValue?.elementRef.current?.id
+                // }
                 aria-multiselectable={multiselect}
                 ref={listboxRef}
                 onKeyDown={handleKeyDown}
                 onBlur={() => {
-                    setActiveOption(null);
+                    setActiveOptionValue(null);
                 }}
             >
                 <ListboxContext.Provider
                     value={{
-                        registerOption,
-                        deregisterOption,
-                        activeOption,
-                        onActiveOptionChange: setActiveOption,
+                        activeOptionValue,
+                        onActiveOptionValueChange: setActiveOptionValue,
                         selectedOptionValues,
                         onSelectedOptionValuesChange: setSelectedOptionValues,
                         multiselect,
                     }}
                 >
-                    {children}
+                    {isVirtualized ? (
+                        <VirtualizedList>{children}</VirtualizedList>
+                    ) : (
+                        children
+                    )}
                 </ListboxContext.Provider>
             </StyledListbox>
         </>
