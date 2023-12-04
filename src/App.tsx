@@ -20,7 +20,7 @@ const ListboxExample = () => {
                     aria-describedby="ex"
                     multiselect
                     // selectionFollowsFocus
-                    isVirtualized
+                    // isVirtualized
                     value={value}
                     onChange={onChange}
                 >

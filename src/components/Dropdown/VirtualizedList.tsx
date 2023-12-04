@@ -6,7 +6,6 @@ import React, {
     cloneElement,
     useCallback,
     useLayoutEffect,
-    useMemo,
     useRef,
     useState,
 } from "react";
@@ -16,7 +15,7 @@ import { ListboxOptionProps } from "./ListboxOption";
 import { ListboxGroupProps } from "./ListboxGroup";
 
 interface VirtualizedListProps {
-    children?: ReactNode;
+    children: ReactNode;
 }
 
 interface VirtualizedListItemProps {
@@ -52,20 +51,11 @@ const VirtualizedListItem = ({
 };
 
 export const VirtualizedList = ({ children }: VirtualizedListProps) => {
-    const flattenedChildrenArray = useMemo(() => {
-        return (Children.toArray(children) as ReactElement[]).flatMap(
-            (child) => [
-                cloneElement(child, {}, undefined),
-                ...Children.toArray(child.props?.children),
-            ]
-        ) as ReactElement[];
-    }, [children]);
-
-    console.log(flattenedChildrenArray);
+    const numChildren = Children.count(children);
 
     const listRef = useRef<VariableSizeList | null>(null);
     const itemHeights = useRef<(number | null)[]>(
-        new Array(flattenedChildrenArray.length).fill(null)
+        new Array(numChildren).fill(null)
     );
 
     const setListItemHeight = useCallback(
@@ -78,30 +68,32 @@ export const VirtualizedList = ({ children }: VirtualizedListProps) => {
 
     return (
         <AutoSizer style={{ width: "100%", height: "100%" }}>
-            {({ width, height }) => (
-                <VariableSizeList
-                    width={width}
-                    height={height}
-                    itemCount={flattenedChildrenArray.length}
-                    itemSize={(index) => itemHeights.current[index]}
-                    ref={listRef}
-                >
-                    {({
-                        index,
-                        style,
-                    }: {
-                        index: number;
-                        style: CSSProperties;
-                    }) => (
-                        <VirtualizedListItem
-                            componentToRender={flattenedChildrenArray[index]}
-                            style={style}
-                            index={index}
-                            setHeight={setListItemHeight}
-                        />
-                    )}
-                </VariableSizeList>
-            )}
+            {({ width, height }) =>
+                Array.isArray(children) ? (
+                    <VariableSizeList
+                        width={width}
+                        height={height}
+                        itemCount={numChildren}
+                        itemSize={(index) => itemHeights.current[index]}
+                        ref={listRef}
+                    >
+                        {({
+                            index,
+                            style,
+                        }: {
+                            index: number;
+                            style: CSSProperties;
+                        }) => (
+                            <VirtualizedListItem
+                                componentToRender={children[index]}
+                                style={style}
+                                index={index}
+                                setHeight={setListItemHeight}
+                            />
+                        )}
+                    </VariableSizeList>
+                ) : null
+            }
         </AutoSizer>
     );
 };

@@ -3,6 +3,7 @@ import React, {
     KeyboardEventHandler,
     ReactElement,
     ReactNode,
+    cloneElement,
     useCallback,
     useMemo,
     useRef,
@@ -12,7 +13,6 @@ import styled from "styled-components";
 import { ListboxContext } from "./ListboxContext";
 import ListboxOption, { ListboxOptionProps } from "./ListboxOption";
 import { useControllableState } from "../../hooks";
-import { ListboxGroup } from "./ListboxGroup";
 import { VirtualizedList } from "./VirtualizedList";
 
 type ListboxDiscriminatedProps = (
@@ -57,6 +57,11 @@ const StyledListbox = styled.div`
     box-shadow: 0px 0px 10px rgba(227, 227, 227, 0.9);
     padding: 10px 0;
     overflow: auto;
+    outline: none;
+
+    &:focus {
+        box-shadow: 0 0 0 2px #687ad3, 0px 0px 10px rgba(227, 227, 227, 0.9);
+    }
 `;
 
 const Listbox = ({
@@ -70,7 +75,7 @@ const Listbox = ({
     isVirtualized = false,
     children,
 }: ListboxProps) => {
-    const listboxRef = useRef<HTMLUListElement>(null);
+    const listboxRef = useRef<HTMLDivElement>(null);
     const [activeOptionValue, setActiveOptionValue] = useState<string | null>(
         null
     );
@@ -81,33 +86,22 @@ const Listbox = ({
             onChange: externalOnChange,
         });
 
-    const groupsAndOptionsFlatList = useMemo(() => {
-        const flatArray: ReactElement[] = [];
-
-        Children.forEach(children, (_child) => {
-            const child = _child as ReactElement;
-            flatArray.push(child);
-
-            if ((child as ReactElement).type === ListboxGroup) {
-                const childrenOfListboxGroup = child.props.children;
-                flatArray.push(
-                    ...(Children.toArray(
-                        childrenOfListboxGroup
-                    ) as ReactElement[])
-                );
-            }
-        });
-
-        return flatArray;
+    const flattenedChildrenArray = useMemo(() => {
+        return (Children.toArray(children) as ReactElement[]).flatMap(
+            (child) => [
+                cloneElement(child, {}, undefined),
+                ...Children.toArray(child.props?.children),
+            ]
+        ) as ReactElement[];
     }, [children]);
 
     const optionValuesList = useMemo((): string[] => {
         return (
-            groupsAndOptionsFlatList.filter((child) => {
+            flattenedChildrenArray.filter((child) => {
                 return (child as ReactElement).type === ListboxOption;
             }) as ReactElement<ListboxOptionProps>[]
         ).map((child) => child.props.value);
-    }, [groupsAndOptionsFlatList]);
+    }, [flattenedChildrenArray]);
 
     const getIndexOfOptionInList = useCallback(
         (optionValue: string): number => {
@@ -392,9 +386,11 @@ const Listbox = ({
                     }}
                 >
                     {isVirtualized ? (
-                        <VirtualizedList>{children}</VirtualizedList>
+                        <VirtualizedList>
+                            {flattenedChildrenArray}
+                        </VirtualizedList>
                     ) : (
-                        children
+                        flattenedChildrenArray
                     )}
                 </ListboxContext.Provider>
             </StyledListbox>

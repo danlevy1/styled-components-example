@@ -43,12 +43,6 @@ const StyledListboxOption = styled.div<StyledListboxOptionProps>`
 
         return undefined;
     }};
-
-    &:focus {
-        outline: none;
-        box-shadow: inset 0 0 0 2px #4558b5;
-        border-radius: 4px;
-    }
 `;
 
 const StyledListboxOptionText = styled.span`
