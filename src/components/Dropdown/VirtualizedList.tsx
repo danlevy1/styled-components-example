@@ -50,6 +50,28 @@ const VirtualizedListItem = ({
     return clonedComponentToRender;
 };
 
+const VirtualizedListItemRenderer = ({
+    index,
+    style,
+    data,
+}: {
+    index: number;
+    style: CSSProperties;
+    data: {
+        childrenComponents: ReactElement[];
+        setHeight: (index: number, height: number) => undefined;
+    };
+}) => {
+    return (
+        <VirtualizedListItem
+            componentToRender={data.childrenComponents[index]}
+            style={style}
+            index={index}
+            setHeight={data.setHeight}
+        />
+    );
+};
+
 export const VirtualizedList = ({ children }: VirtualizedListProps) => {
     const numChildren = Children.count(children);
 
@@ -75,22 +97,13 @@ export const VirtualizedList = ({ children }: VirtualizedListProps) => {
                         height={height}
                         itemCount={numChildren}
                         itemSize={(index) => itemHeights.current[index]}
+                        itemData={{
+                            childrenComponents: children,
+                            setHeight: setListItemHeight,
+                        }}
                         ref={listRef}
                     >
-                        {({
-                            index,
-                            style,
-                        }: {
-                            index: number;
-                            style: CSSProperties;
-                        }) => (
-                            <VirtualizedListItem
-                                componentToRender={children[index]}
-                                style={style}
-                                index={index}
-                                setHeight={setListItemHeight}
-                            />
-                        )}
+                        {VirtualizedListItemRenderer}
                     </VariableSizeList>
                 ) : null
             }
